@@ -1,0 +1,18 @@
+# Build artifacts
+.build/
+build/
+DerivedData/
+*.xcresult
+build_log.txt
+
+# Binary / App
+VoiceFlow.app/
+
+# User specifically requested exclusions
+test/
+.cloud/
+.claude/
+
+# OS X
+.DS_Store
+*.swp
