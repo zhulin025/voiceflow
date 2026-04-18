@@ -7,6 +7,7 @@ build_log.txt
 
 # Binary / App
 VoiceFlow.app/
+*.zip
 
 # User specifically requested exclusions
 test/

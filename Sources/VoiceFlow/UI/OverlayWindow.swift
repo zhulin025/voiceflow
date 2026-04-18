@@ -1,13 +1,21 @@
 import AppKit
 import SwiftUI
+import Combine
 
 /// A custom NSPanel that floats at the bottom of the screen.
 class OverlayWindow: NSPanel {
+    private var cancellables = Set<AnyCancellable>()
+    
+    // Base dimensions from OverlayView
+    private let baseWidth: CGFloat = 410
+    private let baseHeight: CGFloat = 110
+
     init(contentView: some View) {
+        let scale = Configuration.shared.overlayScale
         let screen = NSScreen.main?.visibleFrame ?? .zero
         
-        let width: CGFloat = 380
-        let height: CGFloat = 120
+        let width = baseWidth * CGFloat(scale)
+        let height = baseHeight * CGFloat(scale)
         let rect = NSRect(
             x: (screen.width - width) / 2,
             y: screen.minY + 40,
@@ -27,12 +35,35 @@ class OverlayWindow: NSPanel {
         self.collectionBehavior = [.canJoinAllSpaces, .stationary]
         self.backgroundColor = NSColor.clear
         self.isOpaque = false
-        self.hasShadow = false // Disable native shadow to avoid "grey rectangle" ghosting
+        self.hasShadow = false
         self.ignoresMouseEvents = false
-        self.isMovableByWindowBackground = true // User can move the bar, but it's clear
+        self.isMovableByWindowBackground = true
         
         let hostingView = NSHostingView(rootView: contentView)
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
         self.contentView = hostingView
+        
+        setupScaleObserver()
+    }
+    
+    private func setupScaleObserver() {
+        Configuration.shared.$overlayScale
+            .receive(on: RunLoop.main)
+            .sink { [weak self] scale in
+                self?.updateFrame(scale: scale)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func updateFrame(scale: Double) {
+        let screen = NSScreen.main?.visibleFrame ?? .zero
+        let width = baseWidth * CGFloat(scale)
+        let height = baseHeight * CGFloat(scale)
+        
+        let newX = (screen.width - width) / 2
+        let newY = screen.minY + 40
+        
+        let newFrame = NSRect(x: newX, y: newY, width: width, height: height)
+        self.setFrame(newFrame, display: true, animate: false)
     }
 }

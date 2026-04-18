@@ -98,6 +98,24 @@ struct SettingsView: View {
                                     Text("模糊").font(.caption2).opacity(0.4)
                                 }
                             }
+
+                            Divider().opacity(0.1)
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text("界面大小")
+                                        .font(.caption).opacity(0.7)
+                                    Spacer()
+                                    Text(String(format: "%.0f%%", config.overlayScale * 100))
+                                        .font(.caption).foregroundStyle(.white.opacity(0.5))
+                                }
+                                HStack(spacing: 8) {
+                                    Text("较小").font(.caption2).opacity(0.4)
+                                    Slider(value: $config.overlayScale, in: 0.5...2.0, step: 0.1)
+                                        .tint(.purple)
+                                    Text("较大").font(.caption2).opacity(0.4)
+                                }
+                            }
                         }
                     }
                     .padding(.trailing, 8)

@@ -41,6 +41,10 @@ class Configuration: ObservableObject {
         didSet { UserDefaults.standard.set(llmModel, forKey: "llmModel") }
     }
     
+    @Published var overlayScale: Double {
+        didSet { UserDefaults.standard.set(overlayScale, forKey: "overlayScale") }
+    }
+    
     init() {
         let savedMode = UserDefaults.standard.string(forKey: "asrMode") ?? ASREngine.Mode.builtIn.rawValue
         self.asrMode = ASREngine.Mode(rawValue: savedMode) ?? .builtIn
@@ -53,5 +57,6 @@ class Configuration: ObservableObject {
         self.llmEndpoint = UserDefaults.standard.string(forKey: "llmEndpoint") ?? "https://api.deepseek.com/v1"
         self.llmKey = UserDefaults.standard.string(forKey: "llmKey") ?? ""
         self.llmModel = UserDefaults.standard.string(forKey: "llmModel") ?? "deepseek-chat"
+        self.overlayScale = UserDefaults.standard.object(forKey: "overlayScale") as? Double ?? 1.0
     }
 }

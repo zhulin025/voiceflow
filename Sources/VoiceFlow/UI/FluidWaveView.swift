@@ -16,8 +16,8 @@ struct FluidWaveView: View {
                 let bx = size.width  * 0.18
                 let by = size.height * 0.21
 
-                // ── Four overlapping aurora blobs (Scaled up 1.8x) ────────────
-                let scale = 1.8
+                // ── Four overlapping aurora blobs (Scaled down to 0.9 of previous 1.8x) ────────────
+                let scale = 1.62
                 drawBlob(ctx, cx: cx - bx*0.08, cy: cy + by*0.06,
                          bx: bx * scale * (0.78 + amp * 0.57), by: by * scale * (0.78 + amp * 0.42),
                          phase: t * 1.6, wobbleFreq: 5,

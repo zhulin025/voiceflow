@@ -3,6 +3,7 @@ import SwiftUI
 struct OverlayView: View {
     @ObservedObject var audio: AudioEngine
     @EnvironmentObject var recorder: RecorderState
+    @ObservedObject private var config = Configuration.shared
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -57,8 +58,14 @@ struct OverlayView: View {
                 Menu {
                     Section("转换模式") {
                         ForEach(LLMProcessor.Mode.allCases, id: \.self) { mode in
-                            Button(mode.rawValue) {
+                            Button {
                                 recorder.selectedMode = mode
+                            } label: {
+                                if recorder.selectedMode == mode {
+                                    Text("● ").foregroundColor(.purple) + Text(mode.rawValue)
+                                } else {
+                                    Text(mode.rawValue)
+                                }
                             }
                         }
                     }
@@ -103,7 +110,8 @@ struct OverlayView: View {
             .buttonStyle(.plain)
             .offset(x: -4, y: -4)
         }
-        .frame(width: 410, height: 110)
+        .scaleEffect(config.overlayScale)
+        .frame(width: 410 * config.overlayScale, height: 110 * config.overlayScale)
         .background(Color.clear)
     }
 }
