@@ -1,9 +1,32 @@
 import Foundation
 import AppKit
+import SwiftUI
 
 /// Simple configuration manager using UserDefaults
 class Configuration: ObservableObject {
     static let shared = Configuration()
+    
+    var themeColor: Color {
+        switch waveColorScheme {
+        case .purple: return .purple
+        case .blue:   return Color(red: 0.20, green: 0.40, blue: 0.85)
+        case .green:  return Color(red: 0.15, green: 0.65, blue: 0.45)
+        case .aurora: return Color(red: 0.10, green: 0.80, blue: 0.70)
+        }
+    }
+    
+    enum WaveColorScheme: String, CaseIterable {
+        case purple  = "紫罗兰"
+        case blue    = "深海蓝"
+        case green   = "翡翠绿"
+        case aurora  = "极光"
+    }
+    
+    enum WaveMotionScheme: String, CaseIterable {
+        case fluid    = "流畅"
+        case energetic = "活力"
+        case serene    = "宁静"
+    }
     
     @Published var asrMode: ASREngine.Mode {
         didSet {
@@ -45,6 +68,14 @@ class Configuration: ObservableObject {
         didSet { UserDefaults.standard.set(overlayScale, forKey: "overlayScale") }
     }
     
+    @Published var waveColorScheme: WaveColorScheme {
+        didSet { UserDefaults.standard.set(waveColorScheme.rawValue, forKey: "waveColorScheme") }
+    }
+    
+    @Published var waveMotionScheme: WaveMotionScheme {
+        didSet { UserDefaults.standard.set(waveMotionScheme.rawValue, forKey: "waveMotionScheme") }
+    }
+    
     init() {
         let savedMode = UserDefaults.standard.string(forKey: "asrMode") ?? ASREngine.Mode.builtIn.rawValue
         self.asrMode = ASREngine.Mode(rawValue: savedMode) ?? .builtIn
@@ -58,5 +89,11 @@ class Configuration: ObservableObject {
         self.llmKey = UserDefaults.standard.string(forKey: "llmKey") ?? ""
         self.llmModel = UserDefaults.standard.string(forKey: "llmModel") ?? "deepseek-chat"
         self.overlayScale = UserDefaults.standard.object(forKey: "overlayScale") as? Double ?? 1.0
+        
+        let savedColorScheme = UserDefaults.standard.string(forKey: "waveColorScheme") ?? WaveColorScheme.purple.rawValue
+        self.waveColorScheme = WaveColorScheme(rawValue: savedColorScheme) ?? .purple
+        
+        let savedMotionScheme = UserDefaults.standard.string(forKey: "waveMotionScheme") ?? WaveMotionScheme.fluid.rawValue
+        self.waveMotionScheme = WaveMotionScheme(rawValue: savedMotionScheme) ?? .fluid
     }
 }

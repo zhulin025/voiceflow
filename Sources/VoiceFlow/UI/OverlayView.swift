@@ -62,7 +62,7 @@ struct OverlayView: View {
                                 recorder.selectedMode = mode
                             } label: {
                                 if recorder.selectedMode == mode {
-                                    Text("● ").foregroundColor(.purple) + Text(mode.rawValue)
+                                    Text("● ").foregroundColor(config.themeColor) + Text(mode.rawValue)
                                 } else {
                                     Text(mode.rawValue)
                                 }
@@ -80,7 +80,7 @@ struct OverlayView: View {
                 } label: {
                     Image(systemName: "sparkles")
                         .font(.system(size: 18))
-                        .foregroundStyle(.purple)
+                        .foregroundStyle(config.themeColor)
                         .frame(width: 44, height: 44)
                         .background(.white.opacity(0.1))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
