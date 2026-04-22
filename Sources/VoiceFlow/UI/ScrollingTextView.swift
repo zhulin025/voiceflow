@@ -25,7 +25,7 @@ struct ScrollingTextView: View {
                 // when text overflows this height, ScrollView scrolls automatically.
                 .frame(minHeight: 40)
             }
-            .onChange(of: text) { _ in
+            .onChange(of: text) {
                 withAnimation(.easeOut(duration: 0.15)) {
                     proxy.scrollTo("bottom", anchor: .bottom)
                 }

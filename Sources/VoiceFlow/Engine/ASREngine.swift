@@ -26,9 +26,10 @@ class ASREngine: ObservableObject {
             streamer.start(audioEngine: engine, endpoint: endpoint, onResult: onResult)
             return
         case .builtIn:
-            break
+            guard let engine = audioEngine else { break }
+            try nativeRecognizer.start(audioEngine: engine, onResult: onResult)
+            return
         }
-        try nativeRecognizer.start(onResult: onResult)
     }
 
     func stopStreaming() {
@@ -41,11 +42,13 @@ class ASREngine: ObservableObject {
     func transcribeFinal(audioURL: URL, mode: Mode) async throws -> String {
         switch mode {
         case .builtIn:
-            // 优先尝试文件全量转写（短录音更准确）
+            // 优先尝试文件全量转写（提供最高质量的标点和校对）
             let fileResult = (try? await nativeRecognizer.transcribeFile(audioURL: audioURL)) ?? ""
             let streamedText = nativeRecognizer.lastStreamedText.trimmingCharacters(in: .whitespaces)
-            // 取内容更长的结果（文件转写有 ~1 分钟限制，长录音应使用流式累积文本）
-            if fileResult.count >= streamedText.count && !fileResult.isEmpty {
+            
+            // 如果文件转写结果有效，优先使用它（因为它包含高质量标点）
+            // 除非文件转写因为时长限制（约1分钟）导致严重缺失内容，才回退到流式文本
+            if fileResult.count > (streamedText.count / 2) && !fileResult.isEmpty {
                 return fileResult
             }
             return streamedText.isEmpty ? fileResult : streamedText
@@ -117,7 +120,7 @@ class ASREngine: ObservableObject {
 /// 云端/本地服务器实时流式 ASR
 /// 核心修复：buffer 必须在 audio tap 回调中同步写入，不能异步分发（AVFoundation 会回收 buffer 内存）
 /// 方案：NSLock + 在 tap 回调线程上同步完成格式转换和文件写入
-class CloudStreamingASR {
+class CloudStreamingASR: @unchecked Sendable {
     private var chunkFile: AVAudioFile?
     private var chunkURL: URL?
     private var chunkTimer: Timer?
@@ -278,11 +281,10 @@ class CloudStreamingASR {
 // MARK: - Apple Native ASR
 
 /// Tier-1: Apple Native Streaming & File ASR (Upgraded with Task Rotation)
-class AppleNativeASR {
+class AppleNativeASR: @unchecked Sendable {
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
-    private let audioEngine = AVAudioEngine()
 
     private(set) var accumulatedText = ""
     private var latestCurrentText = "" 
@@ -293,7 +295,7 @@ class AppleNativeASR {
     /// 任务代次：每次 startNewTask 递增，旧回调检测到代次不匹配则直接丢弃，防止无限重入
     private var taskGeneration = 0
 
-    func start(onResult: @escaping (String) -> Void) throws {
+    func start(audioEngine: AudioEngine, onResult: @escaping (String) -> Void) throws {
         stop() // Reset
         self.isRecording = true
         self.accumulatedText = ""
@@ -302,14 +304,10 @@ class AppleNativeASR {
 
         try startNewTask()
 
-        let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
+        // Reuse the external audio engine's buffer
+        audioEngine.onBuffer = { [weak self] buffer in
             self?.recognitionRequest?.append(buffer)
         }
-
-        audioEngine.prepare()
-        try audioEngine.start()
     }
 
     private func startNewTask() throws {
@@ -323,6 +321,7 @@ class AppleNativeASR {
         let newRequest = SFSpeechAudioBufferRecognitionRequest()
         newRequest.shouldReportPartialResults = true
         newRequest.requiresOnDeviceRecognition = true
+        newRequest.addsPunctuation = true // 开启原生智能标点支持
         recognitionRequest = newRequest
 
         recognitionTask = recognizer?.recognitionTask(with: newRequest) { [weak self] result, error in
@@ -361,10 +360,6 @@ class AppleNativeASR {
         // 停止前保存累积文本，供 transcribeFinal 兜底使用
         lastStreamedText = accumulatedText + latestCurrentText
 
-        audioEngine.stop()
-        if audioEngine.inputNode.numberOfInputs > 0 {
-            audioEngine.inputNode.removeTap(onBus: 0)
-        }
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
 
@@ -375,6 +370,7 @@ class AppleNativeASR {
     func transcribeFile(audioURL: URL) async throws -> String {
         guard let recognizer = recognizer, recognizer.isAvailable else { return "ASR 不可用" }
         let request = SFSpeechURLRecognitionRequest(url: audioURL)
+        request.addsPunctuation = true
         // 不强制本地识别：允许使用云端，解除约 1 分钟的时长限制
         
         return try await withCheckedThrowingContinuation { continuation in

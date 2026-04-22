@@ -16,6 +16,8 @@
 	<string>14.0</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>VoiceFlow 需要访问您的麦克风以实时转写您的语音。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>VoiceFlow 需要使用语音识别技术将您的语音转换为文本。</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>VoiceFlow 需要通过辅助功能为您自动输入文本。</string>
 	<key>LSUIElement</key>

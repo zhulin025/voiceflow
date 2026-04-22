@@ -36,17 +36,19 @@ struct SettingsView: View {
                 Text("VoiceFlow 偏好设置")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 24)
                     .padding(.top, 8)
 
                 // Tab Picker
-                Picker("", selection: $selectedTab) {
-                    ForEach(SettingsTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
+                HStack {
+                    Picker("", selection: $selectedTab) {
+                        ForEach(SettingsTab.allCases, id: \.self) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
                     }
+                    .pickerStyle(.segmented)
+                    .frame(width: 200)
+                    Spacer()
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 40)
                 .padding(.top, 8)
 
                 ScrollView {
@@ -60,7 +62,8 @@ struct SettingsView: View {
                     .padding(.trailing, 8)
                 }
             }
-            .padding(24)
+            .padding(32)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(width: 480, height: 520)
         .preferredColorScheme(.dark)
@@ -68,44 +71,62 @@ struct SettingsView: View {
 
     private var modelSettings: some View {
         VStack(alignment: .leading, spacing: 24) {
-            // ── ASR Section ──
+            // ── AI Toggle Section ──
             VStack(alignment: .leading, spacing: 12) {
-                Text("ASR 引擎设置")
-                    .font(.headline).foregroundStyle(.white)
-
-                Picker("", selection: $config.asrMode) {
-                    ForEach(ASREngine.Mode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
+                HStack {
+                    Text("AI 功能")
+                        .font(.headline).foregroundStyle(.white)
+                    Spacer()
+                    Toggle("", isOn: $config.isAIEnabled)
+                        .toggleStyle(.switch)
+                        .tint(config.themeColor)
                 }
-                .pickerStyle(.segmented)
-
-                // 云端 API 模式
-                if config.asrMode == .cloud {
-                    Group {
-                        CustomTextField(label: "API Endpoint", text: $config.asrEndpoint)
-                        CustomSecureField(label: "API Key", text: $config.asrKey)
-                        CustomTextField(
-                            label: "模型名称（如 whisper-1 / Qwen3-ASR-4B）",
-                            text: $config.asrModel
-                        )
-                    }
-                    Text("本地部署示例：Endpoint 填 http://127.0.0.1:8000/v1/audio/transcriptions，模型填对应模型名")
-                        .font(.caption2).foregroundStyle(.white.opacity(0.4))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text(config.isAIEnabled ? "开启后将使用大模型对语音进行智能修正、润色或提炼。" : "关闭后仅作为纯净语音输入工具，录制结束直接上屏原始识别结果。")
+                    .font(.caption2).foregroundStyle(.white.opacity(0.4))
             }
 
-            Divider().opacity(0.1)
+            if config.isAIEnabled {
+                Divider().opacity(0.1)
 
-            // ── LLM Section ──
-            VStack(alignment: .leading, spacing: 12) {
-                Text("LLM 智能修正设置")
-                    .font(.headline).foregroundStyle(.white)
+                // ── ASR Section ──
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("ASR 引擎设置")
+                        .font(.headline).foregroundStyle(.white)
 
-                CustomTextField(label: "API Endpoint", text: $config.llmEndpoint)
-                CustomTextField(label: "Model Name", text: $config.llmModel)
-                CustomSecureField(label: "API Key", text: $config.llmKey)
+                    Picker("", selection: $config.asrMode) {
+                        ForEach(ASREngine.Mode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    // 云端 API 模式
+                    if config.asrMode == .cloud {
+                        Group {
+                            CustomTextField(label: "API Endpoint", text: $config.asrEndpoint)
+                            CustomSecureField(label: "API Key", text: $config.asrKey)
+                            CustomTextField(
+                                label: "模型名称（如 whisper-1 / Qwen3-ASR-4B）",
+                                text: $config.asrModel
+                            )
+                        }
+                        Text("本地部署示例：Endpoint 填 http://127.0.0.1:8000/v1/audio/transcriptions，模型填对应模型名")
+                            .font(.caption2).foregroundStyle(.white.opacity(0.4))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Divider().opacity(0.1)
+
+                // ── LLM Section ──
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("LLM 智能修正设置")
+                        .font(.headline).foregroundStyle(.white)
+
+                    CustomTextField(label: "API Endpoint", text: $config.llmEndpoint)
+                    CustomTextField(label: "Model Name", text: $config.llmModel)
+                    CustomSecureField(label: "API Key", text: $config.llmKey)
+                }
             }
         }
     }

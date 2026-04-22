@@ -12,14 +12,7 @@ struct OverlayView: View {
                 // 1. Mic Button (Left)
                 Button(action: {
                     if !recorder.isAccessibilityTrusted {
-                        if TextInserter.checkPermissions() {
-                            recorder.isAccessibilityTrusted = true
-                            NotificationCenter.default.post(name: NSNotification.Name("ToggleVoiceFlowRecording"), object: nil)
-                        } else {
-                            TextInserter.requestPermissions()
-                            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-                            NSWorkspace.shared.open(url)
-                        }
+                        TextInserter.requestPermissions()
                     } else {
                         NotificationCenter.default.post(name: NSNotification.Name("ToggleVoiceFlowRecording"), object: nil)
                     }
@@ -54,17 +47,33 @@ struct OverlayView: View {
                 }
                 .frame(maxWidth: .infinity)
 
-                // 3. Right: Sparkles Menu (Simplified Modes)
+                // 3. Right: Sparkles Menu
                 Menu {
-                    Section("转换模式") {
-                        ForEach(LLMProcessor.Mode.allCases, id: \.self) { mode in
-                            Button {
-                                recorder.selectedMode = mode
-                            } label: {
-                                if recorder.selectedMode == mode {
-                                    Text("● ").foregroundColor(config.themeColor) + Text(mode.rawValue)
-                                } else {
-                                    Text(mode.rawValue)
+                    if config.isAIEnabled {
+                        Section("转换模式") {
+                            ForEach(LLMProcessor.Mode.allCases, id: \.self) { mode in
+                                Button {
+                                    recorder.selectedMode = mode
+                                } label: {
+                                    if recorder.selectedMode == mode {
+                                        Text("● ").foregroundColor(config.themeColor) + Text(mode.rawValue)
+                                    } else {
+                                        Text(mode.rawValue)
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Section("声纹配色方案") {
+                            ForEach(Configuration.WaveColorScheme.allCases, id: \.self) { scheme in
+                                Button {
+                                    config.waveColorScheme = scheme
+                                } label: {
+                                    if config.waveColorScheme == scheme {
+                                        Text("● ").foregroundColor(config.themeColor) + Text(scheme.rawValue)
+                                    } else {
+                                        Text(scheme.rawValue)
+                                    }
                                 }
                             }
                         }

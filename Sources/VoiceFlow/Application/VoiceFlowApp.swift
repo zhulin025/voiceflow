@@ -24,6 +24,7 @@ class RecorderState: ObservableObject {
     @Published var isAccessibilityTrusted: Bool = true
 }
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     var overlayWindow: OverlayWindow?
     var settingsWindow: NSWindow?
@@ -42,27 +43,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         overlayWindow?.orderFrontRegardless()
         
         keyboardManager.onToggle = { [weak self] in
-            self?.toggleRecording()
+            Task { @MainActor in self?.toggleRecording() }
         }
         
         NotificationCenter.default.addObserver(forName: NSNotification.Name("ToggleVoiceFlowRecording"), object: nil, queue: .main) { [weak self] _ in
-            self?.toggleRecording()
+            Task { @MainActor in self?.toggleRecording() }
         }
         
         NotificationCenter.default.addObserver(forName: NSNotification.Name("OpenVoiceFlowSettings"), object: nil, queue: .main) { [weak self] _ in
-            self?.openSettingsManual()
+            Task { @MainActor in self?.openSettingsManual() }
         }
         
         // Check Accessibility Permissions
         recorder.isAccessibilityTrusted = TextInserter.checkPermissions()
         
         // Setup a timer to re-check if not trusted, so the UI updates automatically
-        Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            if !self.recorder.isAccessibilityTrusted {
-                let trusted = TextInserter.checkPermissions()
-                if trusted != self.recorder.isAccessibilityTrusted {
-                    self.recorder.isAccessibilityTrusted = trusted
+        // Setup a timer to re-check the trust status, so the UI updates automatically
+        Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self else { return }
+                let currentStatus = TextInserter.checkPermissions()
+                if currentStatus != self.recorder.isAccessibilityTrusted {
+                    self.recorder.isAccessibilityTrusted = currentStatus
                 }
             }
         }
@@ -75,21 +77,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastInjectedPartial = ""
 
     private func startRecording() {
+        // Reset state
         lastInjectedPartial = ""
-
-        recorder.isRecording = true
+        
         recorder.transcript = "开始听..."
         audio.start()
-        let mode = Configuration.shared.asrMode
+        let config = Configuration.shared
+        let mode = config.isAIEnabled ? config.asrMode : .builtIn
         try? asr.startStreaming(audioEngine: audio, mode: mode) { [weak self] partial in
             DispatchQueue.main.async {
-                guard let self = self else { return }
-                self.recorder.transcript = partial
-                // Using smart differential injection, pass both strings to TextInserter
-                TextInserter.insertRealTime(partial, previous: self.lastInjectedPartial)
-                self.lastInjectedPartial = partial
+                self?.recorder.transcript = partial
+                
+                // 关键修复：只有在非兼容模式下才尝试实时注入，并记录已注入内容
+                if !TextInserter.isCompatibilityMode() {
+                    TextInserter.insertRealTime(partial, previous: self?.lastInjectedPartial ?? "")
+                    self?.lastInjectedPartial = partial
+                }
             }
         }
+        recorder.isRecording = true
     }
     
     // 已知 ASR 失败时的返回前缀
@@ -109,27 +115,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let audioURL = audio.getRecordingURL()
 
         Task {
-            recorder.transcript = "正在全量转写..."
-            let fullTranscript = (try? await asr.transcribeFinal(audioURL: audioURL, mode: Configuration.shared.asrMode)) ?? ""
+            let config = Configuration.shared
+            let finalTranscript = (try? await asr.transcribeFinal(audioURL: audioURL, mode: config.isAIEnabled ? config.asrMode : .builtIn)) ?? ""
 
-            if fullTranscript.isEmpty {
+            if finalTranscript.isEmpty {
                 recorder.transcript = "未识别到语音"
                 return
             }
 
-            if asrErrorPrefixes.contains(where: { fullTranscript.hasPrefix($0) }) {
-                recorder.transcript = "⚠️ \(fullTranscript)"
+            if asrErrorPrefixes.contains(where: { finalTranscript.hasPrefix($0) }) {
+                recorder.transcript = "⚠️ \(finalTranscript)"
                 return
             }
 
-            recorder.transcript = "大模型优化中..."
-            let result = (try? await llm.process(fullTranscript, mode: recorder.selectedMode)) ?? fullTranscript
+            let result: String
+            if config.isAIEnabled {
+                recorder.transcript = "大模型优化中..."
+                result = (try? await llm.process(finalTranscript, mode: recorder.selectedMode)) ?? finalTranscript
+            } else {
+                result = finalTranscript
+            }
 
             DispatchQueue.main.async {
                 self.recorder.transcript = result
-                // Erase the streamed characters then insert the LLM-cleaned result.
-                // This preserves any text that was in the field BEFORE this recording.
-                TextInserter.finalInsert(result, replacing: streamedText)
+                
+                // 优化：修复关闭 AI 时的重复输入问题
+                // 1. 如果开启了 AI，必须执行 finalInsert（因为需要用 LLM 优化后的结果替换流式识别的草稿）
+                // 2. 如果关闭了 AI，则仅在“流式输出为空”时执行（例如在 Warp/VSCode 等不支持实时输出的应用中）
+                //    如果在 Antigravity/备忘录等支持实时输出的应用中，且已经有内容了，则不再重复插入
+                if config.isAIEnabled || streamedText.isEmpty {
+                    TextInserter.finalInsert(result, replacing: streamedText)
+                }
             }
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             if !self.recorder.isRecording { self.recorder.transcript = "等待录音..." }

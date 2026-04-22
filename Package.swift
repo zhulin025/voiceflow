@@ -17,7 +17,6 @@ let package = Package(
             path: "Sources/VoiceFlow",
             exclude: ["System/Info.plist"],
             resources: [
-                .process("Resources"),
                 .process("UI/Shaders.metal")
             ],
             linkerSettings: [

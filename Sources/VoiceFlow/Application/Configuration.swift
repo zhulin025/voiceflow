@@ -76,6 +76,10 @@ class Configuration: ObservableObject {
         didSet { UserDefaults.standard.set(waveMotionScheme.rawValue, forKey: "waveMotionScheme") }
     }
     
+    @Published var isAIEnabled: Bool {
+        didSet { UserDefaults.standard.set(isAIEnabled, forKey: "isAIEnabled") }
+    }
+    
     init() {
         let savedMode = UserDefaults.standard.string(forKey: "asrMode") ?? ASREngine.Mode.builtIn.rawValue
         self.asrMode = ASREngine.Mode(rawValue: savedMode) ?? .builtIn
@@ -95,5 +99,7 @@ class Configuration: ObservableObject {
         
         let savedMotionScheme = UserDefaults.standard.string(forKey: "waveMotionScheme") ?? WaveMotionScheme.fluid.rawValue
         self.waveMotionScheme = WaveMotionScheme(rawValue: savedMotionScheme) ?? .fluid
+        
+        self.isAIEnabled = UserDefaults.standard.bool(forKey: "isAIEnabled")
     }
 }

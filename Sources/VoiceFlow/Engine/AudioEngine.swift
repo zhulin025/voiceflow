@@ -15,10 +15,14 @@ class AudioEngine: ObservableObject {
     private let recordingURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("voiceflow_recording.m4a")
     
     init() {
-        setupEngine()
+        // No immediate setup to avoid premature mic permission prompts
     }
     
+    private var isSetup = false
     private func setupEngine() {
+        if isSetup { return }
+        isSetup = true
+        
         engine.attach(mixer)
         let input = engine.inputNode
         let format = input.inputFormat(forBus: 0)
@@ -62,6 +66,8 @@ class AudioEngine: ObservableObject {
     }
     
     func start() {
+        setupEngine()
+        
         // Prepare file for recording
         let settings: [String: Any] = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
@@ -81,6 +87,10 @@ class AudioEngine: ObservableObject {
     
     func stop() {
         engine.stop()
+        if isSetup {
+            engine.inputNode.removeTap(onBus: 0)
+            isSetup = false // 重置状态，下次 start 重新安装 tap
+        }
         audioFile = nil // Close file
         onBuffer = nil  // 清空回调，防止悬挂引用
         isRunning = false

@@ -21,6 +21,12 @@ struct TextInserter {
         return (focusedElement as! AXUIElement)
     }
 
+    static func isCompatibilityMode() -> Bool {
+        guard let element = getFocusedElement(),
+              let bundleID = getBundleID(for: element) else { return false }
+        return compatibilityBlacklist.contains(bundleID)
+    }
+
     /// Final injection after LLM processing.
     /// Erases the streaming text character-by-character, then appends the clean result.
     /// This preserves any pre-existing text in the field (from before the recording started).
@@ -191,7 +197,7 @@ struct TextInserter {
             var pid: pid_t = 0
             if AXUIElementGetPid(targetElement, &pid) == .success {
                 let app = NSRunningApplication(processIdentifier: pid)
-                app?.activate(options: .activateIgnoringOtherApps)
+                app?.activate()
             }
         }
 
@@ -213,6 +219,13 @@ struct TextInserter {
     
     static func requestPermissions() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-        AXIsProcessTrustedWithOptions(options as CFDictionary)
+        let trusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
+        
+        if !trusted {
+            // 直接尝试打开系统偏好设置中的辅助功能页面，方便用户操作
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                NSWorkspace.shared.open(url)
+            }
+        }
     }
 }
